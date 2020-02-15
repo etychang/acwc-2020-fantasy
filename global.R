@@ -25,12 +25,14 @@ df_selections <- read_csv("2020 AC World Championship - Fantasy Competition (Res
 players <- read_csv("2020acwc_participant_names.csv") %>% 
   rename(Key = Name_Cost, Player = Name)
 
-results <- tibble(ID = 1:4,
-                  Winner = c("Reg Bamford", "Ben Rothman", "Mark Avery", "Reg Bamford"),
-                  Loser = c("Jose Riva", "Paddy Chapman", "Simon Hockey", "Simon Hockey"),
-                  Event = c("Block", "Z", "KO", "Bowl"),
-                  Peeling = c(NA, "qp", "tp", "sxp"),
-                  Comment = c("Bowl final", "Final", NA, NA))
+# results <- tibble(ID = 1:4,
+#                   Winner = c("Reg Bamford", "Ben Rothman", "Mark Avery", "Reg Bamford"),
+#                   Loser = c("Jose Riva", "Paddy Chapman", "Simon Hockey", "Simon Hockey"),
+#                   Event = c("Block", "Z", "KO", "Bowl"),
+#                   Peeling = c(NA, "qp", "tp", "sxp"),
+#                   Comment = c("Bowl final", "Final", NA, NA))
+
+results <- read_csv("results_2020_02_15.csv")
 
 calc_player_special <- function(){
   out <- results %>% 
@@ -66,9 +68,19 @@ calc_player_peels <- function(){
     count(Player, Peeling) %>% 
     mutate(Points = case_when(
       Peeling == "sxp" ~ 10L,
-      Peeling %in% c("tp", "qp", "qnp") ~ 3L,
-      TRUE ~ 0L
-    ))
+      Peeling %in% c("tp", "qp", "qnp", "tpo", "qpo", "qnpo") ~ 3L,
+      TRUE ~ 0L)
+    ) %>% 
+      rbind(
+        results %>% 
+          rename(Player = Loser) %>% 
+          count(Player, Peeling) %>% 
+          mutate(Points = case_when(
+            Peeling == "osxp" ~ 10L,
+            Peeling %in% c("otp", "oqp", "oqnp") ~ 3L,
+            TRUE ~ 0L)
+          )
+      )
   return(out)
 } 
 calc_player_points <- function(){

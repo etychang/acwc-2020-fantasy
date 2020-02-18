@@ -1,16 +1,26 @@
 library(dplyr)
 library(tidyr)
 library(readr)
-df_selections <- tibble(Name = c("Tom", "Amy"),
-                        Player1 = c("Alice 2500", "Alice 2500"),
-                        Player2 = c("Bob 100", "Alice 2500"),
-                        TeamName = c("TeamA", "TeamB")
-                        )
-players <- tibble(Player = c("Alice", "Bob"),
-                  Cost = c(2500, 100)) %>% 
-  mutate(Key = paste(Player, Cost))
 
-df_selections <- read_csv("2020 AC World Championship - Fantasy Competition (Responses) - Form responses 1.csv") %>% 
+# Fictional selections
+# df_selections <- tibble(Name = c("Tom", "Amy"),
+#                         Player1 = c("Alice 2500", "Alice 2500"),
+#                         Player2 = c("Bob 100", "Alice 2500"),
+#                         TeamName = c("TeamA", "TeamB")
+#                         )
+# 
+# players <- tibble(Player = c("Alice", "Bob"),
+#                   Cost = c(2500, 100)) %>% 
+#   mutate(Key = paste(Player, Cost))
+
+# Load players
+players <- read_csv("2020acwc_participant_names.csv") %>% 
+  rename(Key = Name_Cost, Player = Name)
+
+
+#Load selections
+# df_selections <- read_csv("2020 AC World Championship - Fantasy Competition (Responses) - Form responses 1.csv") %>% 
+df_selections <- readxl::read_xlsx("2020 AC World Championship - Fantasy Competition (Responses).xlsx") %>% 
   select(-Timestamp) %>% 
   rename(Player1 = `Select player 1`,
          Player2 = `Select player 2`,
@@ -22,8 +32,16 @@ df_selections <- read_csv("2020 AC World Championship - Fantasy Competition (Res
          Affiliation = `Affiliation (how did you find out about this)`
          )
 
-players <- read_csv("2020acwc_participant_names.csv") %>% 
-  rename(Key = Name_Cost, Player = Name)
+# Load full list from Chris Clarke db    
+df_selections1 <- read_csv("AC_Fantasy_2020_Scoring.csv") %>% 
+  gather(key, val, -Name) %>% 
+  left_join(players,
+            by = c("val" = "ShortName")) %>% 
+  select(Name, key, Key) %>% 
+  spread(key, Key) %>% 
+  mutate(TeamName = Name,
+         Affiliation = "Croquet community")
+
 
 # results <- tibble(ID = 1:4,
 #                   Winner = c("Reg Bamford", "Ben Rothman", "Mark Avery", "Reg Bamford"),
@@ -32,7 +50,10 @@ players <- read_csv("2020acwc_participant_names.csv") %>%
 #                   Peeling = c(NA, "qp", "tp", "sxp"),
 #                   Comment = c("Bowl final", "Final", NA, NA))
 
-results <- read_csv("results_2020_02_15.csv")
+results <- read_csv("results_2020_02_18.csv")
+
+results <- results %>% 
+  filter(!(str_detect(Winner, "Aiken Hakes") | str_detect(Loser, "Aiken Hakes")))
 
 calc_player_special <- function(){
   out <- results %>% 
@@ -67,8 +88,8 @@ calc_player_peels <- function(){
     rename(Player = Winner) %>% 
     count(Player, Peeling) %>% 
     mutate(Points = case_when(
-      Peeling == "sxp" ~ 10L,
-      Peeling %in% c("tp", "qp", "qnp", "tpo", "qpo", "qnpo") ~ 3L,
+      Peeling == "sxp" ~ 10L * n,
+      Peeling %in% c("tp", "qp", "qnp", "tpo", "qpo", "qnpo") ~ 3L * n,
       TRUE ~ 0L)
     ) %>% 
       rbind(
@@ -104,17 +125,27 @@ calc_player_points <- function(){
 df_player_points <- players %>% 
   left_join(calc_player_points(),
             by = "Player") %>% 
+  # mutate(Points = ifelse(Player == "Aiken Hakes", 0, Points)) %>% # options if just setting Aiken's points to 0, not used.
   arrange(desc(Cost))
 
 df_teamvalues <- df_selections %>% 
+  rbind(df_selections1) %>% 
   gather(Selected, Key, -Name, -TeamName) %>% 
   left_join(players, by = "Key") %>% 
   group_by(Name) %>% 
   summarise(TeamCost = sum(Cost, na.rm = T))
 
+# df_teamvalues1 <- df_selections1 %>% 
+#   gather(Selected, Key, -Name) %>% 
+#   left_join(players, by = c("Key")) %>% 
+#   group_by(Name) %>% 
+#   summarise(TeamCost = sum(Cost, na.rm = T))
+# 
 tbl_selections <- df_selections %>% 
-  left_join(df_teamvalues) %>% 
-  select(Name, TeamName, everything())
+  rbind(df_selections1) %>%
+  left_join(df_teamvalues) %>%
+  select(Name, everything()) %>% 
+  mutate(TeamCost = as.integer(TeamCost))
 
 tbl_playerscores <- df_player_points %>% 
   left_join(results %>% 
@@ -127,14 +158,20 @@ tbl_playerscores <- df_player_points %>%
   
 
 tbl_leaderboard <- df_selections %>% 
-  gather(Player, Key, -Name, -TeamName) %>% 
+  rbind(df_selections1) %>% 
+  # gather(Player, Key, -Name) %>% 
+  gather(Player, Key, -Name, -TeamName) %>%
   left_join(df_player_points,
             by = "Key") %>% 
-  group_by(Name, TeamName) %>% 
+  # group_by(Name) %>% 
+  group_by(Name, TeamName) %>%
   summarise(TeamCost = sum(Cost, na.rm = T),
             Points = sum(Points, na.rm = T)
             ) %>% 
-  left_join(df_selections %>% select(Name, Affiliation)) %>% 
+  left_join(df_selections %>% 
+              rbind(df_selections1) %>% 
+              select(Name, Affiliation)
+            ) %>% 
   arrange(desc(Points))
 
 tbl_scoring <- tribble(
@@ -154,3 +191,4 @@ tbl_scoring <- tribble(
   "Winner", 50
 ) %>% 
   mutate(Points = as.integer(Points))
+

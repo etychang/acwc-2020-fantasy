@@ -37,14 +37,14 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-        h4("Experimental dashboard, containing fake results"),
-        h5(a("Latest (real) results here", href="https://croquetscores.com/2020/ac/wcf-world-championship/")),
-        h5("Created by Eugene Chang, Last updated 14/2/2020"),
+        # h4("Experimental dashboard, containing fake results"),
+        h5(a("Latest results here", href="https://croquetscores.com/2020/ac/wcf-world-championship/")),
+        h5("Created by Eugene Chang, Last updated 18/2/2020"),
         tabsetPanel(
           # plotOutput("distPlot"),
           tabPanel("Leaderboard", dataTableOutput("leaderboard")),
-          tabPanel("Top team choices", tableOutput("topTeam")),
-          tabPanel("Player scores", dataTableOutput("playerScores")),
+          tabPanel("Top team choices", dataTableOutput("topTeam")),
+          tabPanel("Player scores", "Aiken Hakes scractched from the block; all Block games involving him have been removed.",dataTableOutput("playerScores")),
           tabPanel("Results", dataTableOutput("results"))
           
         )
@@ -79,8 +79,8 @@ server <- function(input, output) {
          select(-Affiliation)
    )
 
-   output$topTeam <- renderTable({
-    topPlayers <- head(tbl_leaderboard, 3) %>% 
+   output$topTeam <- renderDataTable({
+    topPlayers <- head(tbl_leaderboard, 10) %>% 
       pull(Name)
     
     tbl_selections %>% 
@@ -89,7 +89,8 @@ server <- function(input, output) {
    })
    output$playerScores <- renderDataTable({
      df_player_points %>% 
-       select(-Key)
+       select(-Key) %>% 
+       mutate(Value = round(Points*100/Cost,1))
    })
    output$scoring <- renderTable(tbl_scoring)
    

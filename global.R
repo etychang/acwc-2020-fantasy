@@ -50,10 +50,10 @@ df_selections1 <- read_csv("AC_Fantasy_2020_Scoring.csv") %>%
 #                   Peeling = c(NA, "qp", "tp", "sxp"),
 #                   Comment = c("Bowl final", "Final", NA, NA))
 
-results <- read_csv("results_2020_02_18.csv")
+results <- read_csv("results_2020_02_22.csv")
 
 results <- results %>% 
-  filter(!(str_detect(Winner, "Aiken Hakes") | str_detect(Loser, "Aiken Hakes")))
+  filter(!((str_detect(Winner, "Aiken Hakes") | str_detect(Loser, "Aiken Hakes")) & Event == "Block"))
 
 calc_player_special <- function(){
   out <- results %>% 
@@ -97,8 +97,8 @@ calc_player_peels <- function(){
           rename(Player = Loser) %>% 
           count(Player, Peeling) %>% 
           mutate(Points = case_when(
-            Peeling == "osxp" ~ 10L,
-            Peeling %in% c("otp", "oqp", "oqnp") ~ 3L,
+            Peeling == "osxp" ~ 10L * n,
+            Peeling %in% c("otp", "oqp", "oqnp") ~ 3L * n,
             TRUE ~ 0L)
           )
       )
@@ -115,8 +115,14 @@ calc_player_points <- function(){
     summarise(Type = "Wins",
               n = n(),
               Points = sum(Points))
+  pts_special <- calc_player_special() %>% 
+    group_by(Player) %>% 
+    summarise(Type = "Special",
+              n = n(),
+              Points = sum(Points))
   out <- pts_wins %>% 
     rbind(pts_peeling) %>% 
+    rbind(pts_special) %>% 
     group_by(Player) %>% 
     summarise(Points = sum(Points))
   return(out)
@@ -167,12 +173,15 @@ tbl_leaderboard <- df_selections %>%
   group_by(Name, TeamName) %>%
   summarise(TeamCost = sum(Cost, na.rm = T),
             Points = sum(Points, na.rm = T)
-            ) %>% 
+            ) %>%
+  ungroup() %>% 
   left_join(df_selections %>% 
               rbind(df_selections1) %>% 
               select(Name, Affiliation)
             ) %>% 
-  arrange(desc(Points))
+  arrange(desc(Points)) %>% 
+  mutate(Rank = row_number(desc(Points))) %>% 
+  select(Rank, everything())
 
 tbl_scoring <- tribble(
   ~Type, ~Points,

@@ -38,8 +38,8 @@ ui <- fluidPage(
       # Show a plot of the generated distribution
       mainPanel(
         # h4("Experimental dashboard, containing fake results"),
-        h5(a("Latest results here", href="https://croquetscores.com/2020/ac/wcf-world-championship/")),
-        h5("Created by Eugene Chang, Last updated 18/2/2020"),
+        h5(a("Final results here", href="https://croquetscores.com/2020/ac/wcf-world-championship/")),
+        h5("Created by Eugene Chang, Last updated 23/2/2020"),
         tabsetPanel(
           # plotOutput("distPlot"),
           tabPanel("Leaderboard", dataTableOutput("leaderboard")),
